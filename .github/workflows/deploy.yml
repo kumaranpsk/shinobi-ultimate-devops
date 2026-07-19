@@ -1,0 +1,31 @@
+name: Build, Test & Deploy Pipeline
+
+# Trigger: every time code is pushed to main branch
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Get the latest code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Build the Docker image (this validates Dockerfile works correctly)
+      - name: Build Docker image
+        run: docker build -t shinobi-ultimate:test .
+
+      # Step 3: "Test" - verify the container actually starts and serves the game
+      - name: Test container runs correctly
+        run: |
+          docker run -d -p 8080:80 --name test-container shinobi-ultimate:test
+          sleep 3
+          curl -f http://localhost:8080 || (echo "❌ Container failed health check" && exit 1)
+          echo "✅ Container is serving content successfully"
+          docker stop test-container
+
+      # Step 4: Notify success (deploy itself happens via Render's auto-deploy webhook)
+      - name: Build & Test Passed
+        run: echo "🎉 Build and test passed! Render will now auto-deploy this commit."
